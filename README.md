@@ -27,7 +27,7 @@ This project is a real-time multiplayer ping pong game where two players can com
    ```
 2. **Start the React development server:**
    ```bash
-   npm start
+   npm run dev
    ```
    The frontend will run on `http://localhost:3000`.
 
