@@ -9,6 +9,7 @@ function App() {
     paddles: { player1: 50, player2: 50 },
     ball: { x: 50, y: 50 },
     scores: { player1: 0, player2: 0 },
+    obstacles: [], // Ensure obstacles are initialized as an empty array
   });
 
   const [player, setPlayer] = useState(null); // Assigned player (player1 or player2)
@@ -84,6 +85,19 @@ function App() {
             top: `${gameState.ball.y}%`,
           }}
         ></div>
+        {/* Render obstacles only if they exist */}
+        {gameState.obstacles?.map((obstacle, index) => (
+          <div
+            key={index}
+            className="obstacle"
+            style={{
+              left: `${obstacle.x}%`,
+              top: `${obstacle.y}%`,
+              width: `${obstacle.size}%`,
+              height: `${obstacle.size + 5}%`,
+            }}
+          ></div>
+        ))}
         <div className="scoreboard">
           Player 1: {gameState.scores.player1} | Player 2: {gameState.scores.player2}
         </div>
@@ -97,6 +111,7 @@ function App() {
       </div>
     </div>
   );
+  
 }
 
 export default App;

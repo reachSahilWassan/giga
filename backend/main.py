@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import socketio
 import asyncio  # Ensure asyncio is properly used
+import random  # Add this import at the top
+
 
 # Create FastAPI app and Socket.IO server
 app = FastAPI()
@@ -18,14 +20,33 @@ app.add_middleware(
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")  # Allow all origins
 app.mount("/", socketio.ASGIApp(sio))
 
+connected_clients = {}  # Maps sid to player (player1 or player2)
+
+def generate_obstacles():
+    """
+    Generates two obstacles with random positions within the playing field.
+    Ensures they don't overlap with the ball's starting position.
+    """
+    obstacles = []
+    while len(obstacles) < 2:
+        x = random.randint(10, 90)  # Random x-coordinate (10% to 90%)
+        y = random.randint(10, 90)  # Random y-coordinate (10% to 90%)
+        obstacle = {"x": x, "y": y, "size": 5}  # Each obstacle is 10x10%
+
+        # Ensure no overlap with the ball's starting position (50, 50)
+        ball_start_x, ball_start_y = 50, 50
+        if abs(x - ball_start_x) > 10 and abs(y - ball_start_y) > 10:
+            obstacles.append(obstacle)
+    return obstacles
+
 # Game state variables
 game_state = {
-    "paddles": {"player1": 50, "player2": 50},  # Paddle positions (percentage)
-    "ball": {"x": 50, "y": 50, "dx": 1, "dy": 1},  # Ball position and direction
-    "obstacles": [],  # Obstacle positions
-    "scores": {"player1": 0, "player2": 0},  # Scores
+    "paddles": {"player1": 50, "player2": 50},
+    "ball": {"x": 50, "y": 50, "dx": 1, "dy": 1},
+    "obstacles": generate_obstacles(),  # Add obstacles
+    "scores": {"player1": 0, "player2": 0},
 }
-connected_clients = {}  # Maps sid to player (player1 or player2)
+
 
 @sio.event
 async def connect(sid, environ):
@@ -41,6 +62,8 @@ async def connect(sid, environ):
         print(f"Client {sid} rejected: game full")
 
     await sio.emit("update_game", game_state)
+
+
 
 @sio.event
 async def disconnect(sid):
@@ -61,6 +84,7 @@ def update_ball_position():
     ball = game_state["ball"]
     paddle1_y = game_state["paddles"]["player1"]
     paddle2_y = game_state["paddles"]["player2"]
+    obstacles = game_state["obstacles"]
 
     # Update ball position
     ball["x"] += ball["dx"]
@@ -71,16 +95,24 @@ def update_ball_position():
         ball["dy"] *= -1
 
     # Paddle 1 collision (left paddle)
-    if ball["x"] <= 5:  # Ball is at the left side
-        if paddle1_y - 10 <= ball["y"] <= paddle1_y + 10:  # Paddle hit
-            ball["dx"] *= -1  # Reverse horizontal direction
-            adjust_ball_angle(ball, paddle1_y)
+    if ball["x"] <= 5 and paddle1_y - 10 <= ball["y"] <= paddle1_y + 10:
+        ball["dx"] *= -1
+        adjust_ball_angle(ball, paddle1_y)
 
     # Paddle 2 collision (right paddle)
-    elif ball["x"] >= 95:  # Ball is at the right side
-        if paddle2_y - 10 <= ball["y"] <= paddle2_y + 10:  # Paddle hit
-            ball["dx"] *= -1  # Reverse horizontal direction
-            adjust_ball_angle(ball, paddle2_y)
+    elif ball["x"] >= 95 and paddle2_y - 10 <= ball["y"] <= paddle2_y + 10:
+        ball["dx"] *= -1
+        adjust_ball_angle(ball, paddle2_y)
+
+    # Obstacle collision
+    for obstacle in obstacles:
+        if (
+            obstacle["x"] <= ball["x"] <= obstacle["x"] + obstacle["size"]
+            and obstacle["y"] <= ball["y"] <= obstacle["y"] + obstacle["size"]
+        ):
+            # Reverse ball direction on collision
+            ball["dx"] *= -1
+            ball["dy"] *= -1
 
     # Score handling (out of bounds)
     if ball["x"] <= 0:
@@ -89,6 +121,7 @@ def update_ball_position():
     elif ball["x"] >= 100:
         game_state["scores"]["player1"] += 1
         reset_ball()
+
 
 def adjust_ball_angle(ball, paddle_y):
     """
@@ -99,7 +132,9 @@ def adjust_ball_angle(ball, paddle_y):
     ball["dy"] = max(min(ball["dy"], 2), -2)  # Limit vertical speed
 
 def reset_ball():
+    global game_state
     game_state["ball"] = {"x": 50, "y": 50, "dx": 1, "dy": 1}
+    game_state["obstacles"] = generate_obstacles()  # Generate new obstacles
 
 async def game_loop():
     while True:

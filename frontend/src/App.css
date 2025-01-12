@@ -105,3 +105,10 @@ button {
 .restart-button:hover{
   opacity: 0.9;
 }
+
+.obstacle {
+  position: absolute;
+  background-color: #f0ad4e; /* Orange color for obstacles */
+  border: 1px solid #d9534f;
+  box-sizing: border-box;
+}
