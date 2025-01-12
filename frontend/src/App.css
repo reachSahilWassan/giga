@@ -49,8 +49,8 @@
 
 .game-board {
   position: relative;
-  width: 600px;
-  height: 400px;
+  width: 80vw;
+  height: 60vh;
   margin: 20px auto;
   background: #000;
   border: 2px solid #fff;
